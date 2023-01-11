@@ -6,26 +6,26 @@
 #define ESP32_GPIO_H
 
 
+
+// TODO: fix pinMode to correctly work with gpio driver 
 /**
  * Wrapper class for simple digital input/output pin
  */
 class DIO {
 private:
     ///\cond false
-    uint32_t iPin;
-    uint_32_t pinMode;
-    bool state = false;
+    uint8_t iPin;
+    uint8_t iPinMode;
+    bool bState = false;
     ///\endcond
 public:
 
-    DIO(uint32_t pin, uint_32t pinMode) {
+    DIO(uint8_t pin, uint8_t iPinMode = 0) {
         this->iPin = pin;
-        this->pinMode = pinMode;
+        this->iPinMode = iPinMode;
 
-        // set pin mode via Arduino.h
-        // TODO: change to direct ports with registers
-        pinMode(this->iPin,this->pinMode);
-        digitalWrite(this->iPin, state);
+        gpio_set_direction((gpio_num_t) pin, GPIO_MODE_INPUT_OUTPUT);
+        gpio_set_level((gpio_num_t) pin, this->bState);
 
     }
 
@@ -36,7 +36,8 @@ public:
      * @param high true/false
      */
     void set(bool high) {
-        digitalWrite(this->iPin, high);
+        this->bState = high;
+        gpio_set_level((gpio_num_t)this->iPin, this->bState);
     }
 
     /**
@@ -44,14 +45,16 @@ public:
      * @return high/low
      */
     bool get() {
-        return digitalRead(this->iPin);
+        this->bState = gpio_get_level((gpio_num_t) this->iPin);
+        return this->bState;
     }
 
     /**
      * toggle digital output level
      */
     void toggle() {
-        digitalWrite(this->iPin, !state);
+        this->bState = !this->bState;
+        gpio_set_level((gpio_num_t)this->iPin, this->bState);
     }
 };
 
@@ -62,14 +65,12 @@ public:
 class AI {
 private:
     ///\cond false
-    uint32_t iPin;
+    uint8_t iPin;
     ///\endcond
 public:
 
-    AI(uint32_t pin, DIO_PinMode pinMode ) {
+    AI(uint8_t pin) {
         this->iPin = pin;
-        this->pinMode = pinMode;
-        pinMode(this->iPin,ANALOG_INPUT);
     }
 
     ~AI(){}
@@ -78,7 +79,7 @@ public:
      * read analog input level
      * @return bits
      */
-    bool get() {
+    uint16_t get() {
         return analogRead(this->iPin);
     }
 };
@@ -92,19 +93,19 @@ public:
  * for both ADCs since there is no way to specify which one
  * TODO: will may be changed with direct register acess
  */
-class ADC {
+class HardwareADC {
 private:
     ///\cond false
-    uint8_t iResolution;           ///< Range 9-12 Bits | Default : 12 bits
-    uint8_t iCycles;               ///< Range 1-255 | Default : 8
-    uint8_t iClockDiv;             ///< Range 1-255 | Default : 1
+    uint8_t iResolution = 12;           ///< Range 9-12 Bits | Default : 12 bits
+    uint8_t iCycles = 8;               ///< Range 1-255 | Default : 8
+    uint8_t iClockDiv = 1;             ///< Range 1-255 | Default : 1
 
     ///\endcond
 public:
 
-    ADC(){}
+    HardwareADC(){}
 
-    ~ADC(){}
+    ~HardwareADC(){}
 
     /**
      * set new Resolution
@@ -113,7 +114,8 @@ public:
      */
     void setResolution(uint8_t iResolution) {
         this->iResolution = iResolution;
-        analogReadResolution(iResolution);
+        Serial.println("setResolution");
+        //analogReadResolution(iResolution);
     }
 
     /**
@@ -124,7 +126,7 @@ public:
      */
     void setCycles(uint8_t iCycles) {
         this->iCycles = iCycles;
-        analogSetCycles(iCycles);
+        //analogSetCycles(iCycles);
     }
 
     /**
@@ -141,7 +143,7 @@ public:
      * get current Resolution
      * @return bits
      */
-    bool getResolution() {
+    uint8_t getResolution() {
         return iResolution;
     }
 
@@ -149,18 +151,18 @@ public:
      * get current Cycles
      * @return
      */
-    bool getCycles() {
+    uint8_t getCycles() {
         return iCycles;
     }
 
     /**
-     * get current Samples
+     * get current ClockDivider
      * @return
      */
-    bool getSamples() {
-        return iSamples;
+    uint8_t getClockDiv() {
+        return iClockDiv;
     }
 };
 
 
-#endif //STM_GPIO_H
+#endif //ESP32_GPIO_H

@@ -1,65 +1,66 @@
+#include "Arduino.h"
 /** @file pwm.h
  *
- * Copyright (c) 2020 IACE
  */
-#ifndef STM_PWM_H
-#define STM_PWM_H
+#ifndef ESP32_PMW_H
+#define ESP32_PWM_H
 
-#include "stm/hal.h"
-#include "stm/timer.h"
+// todo think about adding security or splitting into led channels and then "PWM
+// / GPIO Class as output only" namensgebung
 
 /**
  * @brief Template class for hardware based PWM outputs
+ * @param channel select a specific channel from 0-15 
+ * @param frequency desired frequency in [Hz]
+ * @param resolution in [bits] of the pwm signal 
  */
-class HardwarePWM {
+class PWM {
 public:
-    /**
-     * set pwm in percent
-     * @param perc [0..1]
-     */
-    void pwm(double perc) {
-        ticks(perc * period);
-    }
+  PWM(){};
 
-    /**
-     * set pwm as value of timer ticks
-     * @param ticks
-     */
-     void ticks(uint32_t ticks) {
-         __HAL_TIM_SET_COMPARE(hTim, channel, ticks);
-     }
+  PWM(uint8_t channel, uint16_t frequency, uint8_t resolution = 8)
+      : channel(channel), frequency(frequency),
+        resolution(resolution) {
+  };
 
-    /**
-     * Initialize Timer Channel
-     *
-     * make sure to initialize the corresponding AFIO pin
-     *
-     * @param tim pointer to HardwareTimer
-     * @param chan timer channel number (TIM_CHANNEL_x)
-     */
-    HardwarePWM(HardwareTimer *tim, uint32_t chan) :
-            hTim(tim->handle()), channel(chan), period(hTim->Init.Period) {
-        // pwm config of timer
-        while (HAL_TIM_PWM_Init(hTim) != HAL_OK);
+  ~PWM(){};
 
-        // channel config
-        TIM_OC_InitTypeDef sConfigOC = {};
-        sConfigOC.OCMode = TIM_OCMODE_PWM1;
-        sConfigOC.Pulse = 0;
-        sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-        sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-        while (HAL_TIM_PWM_ConfigChannel(hTim, &sConfigOC, chan) != HAL_OK);
+  void init(){
+    ledcSetup(this->channel, this->frequency, this->resolution);
+  }
 
-        __HAL_TIM_SET_COMPARE(hTim, chan, 0);
-        while (HAL_TIM_PWM_Start(hTim, chan) != HAL_OK);
-    }
+  void write(int duty) {
+    ledcWrite(this->channel, duty);
+  }; // todo think about correct datatype since resolution is a variable
+
+  void setFrequency(uint16_t frequency) {
+    this->frequency = frequency;
+    ledcChangeFrequency(this->channel, this->frequency, this->resolution);
+  };
+
+  void setResolution(uint32_t resolution) {
+    this->resolution = resolution;
+    ledcChangeFrequency(this->channel, this->frequency, this->resolution);
+  };
+
+  uint16_t getFrequency() { return this->frequency; }
+  uint32_t getResolution() { return this->resolution; }
+  uint8_t getChannel() { return this->channel; }
+
+  void detatchPin(uint8_t dPin) { ledcDetachPin(dPin); }
+  void attachPin(uint8_t aPin) { ledcAttachPin(aPin,this->channel); }
+
+  String print() {
+    return "[PWM] - channel " + String(this->channel) + " - frequency " +
+           String(this->frequency) + " - resolution " +
+           String(this->resolution) + " - attached Pin " + String(this->pin);
+  }
 
 private:
-    //\cond false
-    TIM_HandleTypeDef *hTim = nullptr;
-    uint32_t channel = 0;
-    uint32_t period = 0;
-    //\endcond
+  uint8_t channel;
+  uint16_t frequency;
+  uint8_t resolution;
+  uint8_t pin;
 };
 
-#endif //STM_PWM_H
+#endif //ESP32_PWM_H
